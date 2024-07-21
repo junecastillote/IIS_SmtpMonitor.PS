@@ -1,0 +1,8 @@
+demo*
+test*
+*.csv
+*.pfx
+*.cer
+run*
+/report/*
+/ignore/*
