@@ -25,9 +25,9 @@ Function Get-IISSmtpServerSetting {
         $ServerInstance
     )
 
-    if (!(IsFeatureInstalled)) {
-        return $null
-    }
+    # if (!(IsFeatureInstalled)) {
+    #     return $null
+    # }
 
     # Compose Get-CimInstance parameters
     $param_collection = @{
