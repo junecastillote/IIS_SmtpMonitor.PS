@@ -1,56 +1,54 @@
 Function Get-IISSmtpServer {
     [CmdletBinding()]
     param (
-        [Parameter(ParameterSetName = 'Default')]
-        [Parameter(ParameterSetName = 'Name')]
-        [Parameter(ParameterSetName = 'Instance')]
-        [ValidateNotNullOrEmpty()]
-        [string]
-        $ComputerName,
-
-        [Parameter(
-            Mandatory,
-            ParameterSetName = 'Name'
-        )]
-        [ValidateNotNullOrEmpty()]
-        [string]
-        $ServerName,
-
-        [Parameter(
-            Mandatory,
-            ParameterSetName = 'Instance'
-        )]
-        [ValidateNotNullOrEmpty()]
-        [int]
-        $ServerInstance,
-
         [Parameter()]
-        [switch]
-        $Status
+        [ValidateNotNullOrEmpty()]
+        [string]
+        $ComputerName
     )
 
-
-
-    # Compose Get-CimInstance parameters
-
-    # $adsi_path = "IIS://localhost/SMTPSVC"
+    # Command expression to retrieve the SMTP server instances
+    $command = '$(
+    $smtp_service = [adsi]"IIS://localhost/SMTPSVC"
+    if ($smtp_service.Name) {
+        $smtp_server = @($smtp_service.psbase.Children | Where-Object { $_.Class -eq "IIsSmtpServer" })
+    };
+    if ($smtp_server.Count -gt 0) {
+        foreach ($server in $smtp_server) {
+            $server | Add-Member -MemberType NoteProperty -Name Path -Value $server.Path -Force
+            $server | Add-Member -MemberType NoteProperty -Name Name -Value ($server.Path -replace "IIS://localhost/", "") -Force
+        }
+    }
+    $smtp_server
+    )'
 
     if ($ComputerName) {
+        $ComputerName = $ComputerName.ToUpper()
         try {
-            $system_root = ((Get-CimInstance -ComputerName $ComputerName -ClassName Win32_OperatingSystem -ErrorAction Stop).SystemDirectory -replace ':', '$')
-            $metabase_file = "\\$($ComputerName)\$($system_root)\inetsrv\metabase.xml"
+            $system_root = Invoke-Command -ComputerName $ComputerName -ScriptBlock {
+                "$($env:SystemRoot)\system32"
+            } -ErrorAction Stop
+            $metabase_file = "\\$($ComputerName)\$($system_root -replace ':','$')\inetsrv\metabase.xml"
+
+            $smtp_server = @(Invoke-Command -ComputerName IISSMTP01 -ScriptBlock {
+                    Invoke-Expression $using:command
+                } -ErrorAction Stop)
         }
         catch {
-            SayError $_.Exception.Message
-            SayError "Could not automatically determine the metabase path on the remote remopte computer [$($ComputerName)]. Will assume the default path [$("$env:SystemRoot\system32\inetsrv\metabase.xml")] instead."
-            $metabase_file = "\\$($ComputerName)\C$\Windows\system32\inetsrv\metabase.xml"
+            SayError "[$($ComputerName)] $($_.Exception.Message)"
+            return $null
         }
     }
 
-    if (!$ComputerName) {
+    $is_localhost = $false
+
+    if (!$ComputerName -or $ComputerName -eq 'Localhost' -or $ComputerName -eq '.' -or $ComputerName -eq $env:COMPUTERNAME) {
         $metabase_file = "$env:SystemRoot\system32\inetsrv\metabase.xml"
-        $ComputerName = $env:COMPUTERNAME
-        $local_host = $true
+        $ComputerName = ($env:COMPUTERNAME).ToUpper()
+        $is_localhost = $true
+        $smtp_server = @(
+            Invoke-Expression $command
+        )
     }
 
     if (!(Test-Path $metabase_file)) {
@@ -66,82 +64,67 @@ Function Get-IISSmtpServer {
         return $null
     }
 
-    switch ($PSCmdlet.ParameterSetName) {
-        'Name' {
-            [System.Object]$smtp_server = $iis_metabase.configuration.MBProperty.IIsSmtpServer | Where-Object {
-                $_.Location -eq "/LM/$($ServerName)"
-            }
+    switch ($is_localhost) {
+        $true { $service_state = (Get-Service SmtpSvc).Status }
+        $false {
+            $service_state = $(
+                Invoke-Command -ComputerName $ComputerName -ScriptBlock {
+                        (Get-Service SmtpSvc).Status
+                }
+            )
         }
-        'Instance' {
-            [System.Object]$smtp_server = $iis_metabase.configuration.MBProperty.IIsSmtpServer | Where-Object {
-                $_.Location -eq "/LM/SmtpSvc/$($ServerInstance)"
-            }
-        }
-
-        Default {
-            [System.Object]$smtp_server = $iis_metabase.configuration.MBProperty.IIsSmtpServer
-        }
+        Default {}
     }
 
+
     foreach ($server in $smtp_server) {
-        if ($server.RelayIpList) {
+        $server_from_metabase = $iis_metabase.configuration.MBProperty.IIsSmtpServer | Where-Object { $server.Name -eq ($_.Location -replace '/lm/', '') }
+
+        if ($server_from_metabase.RelayIpList) {
             $relay_ip_list = [System.Collections.Generic.List[string]]@()
-            $octet_strings = ($server.RelayIpList.Substring(160) -split '(.{8})' | Where-Object { $_ -ne '' })
+            $octet_strings = ($server_from_metabase.RelayIpList.Substring(160) -split '(.{8})' | Where-Object { $_ -ne '' })
             foreach ($octet in $octet_strings) {
                 $relay_ip_list.Add(($octet -split '(.{2})' | Where-Object { $_ -ne '' } | ForEach-Object { [convert]::ToInt32($_, 16) }) -join ".")
             }
-            $server | Add-Member -MemberType NoteProperty -Name RelayIps -Value $relay_ip_list
+            $server.RelayIpList = $relay_ip_list
         }
         else {
-            $server | Add-Member -MemberType NoteProperty -Name RelayIpList -Value $relay_ip_list
+            $server.RelayIpList = @()
         }
 
-        $server | Add-Member -MemberType NoteProperty -Name ServerName -Value ($server.Location -replace '/lm/', '')
-        $server | Add-Member -MemberType NoteProperty -Name ServerDisplayName -Value $server.ServerComment
+        $server | Add-Member -MemberType NoteProperty -Name VirtualServerName -Value (($server.Name).ToUpper())
+        $server | Add-Member -MemberType NoteProperty -Name VirtualServerDisplayName -Value ($server.ServerComment)[0]
         if (!$server.ServerComment) {
             $server.ServerComment = "[SMTP Virtual Server #$(($server.Location -split '/')[-1])]"
-            $server.ServerDisplayName = $server.ServerComment
+            $server.VirtualServerDisplayName = $server.ServerComment
         }
 
-        $server | Add-Member -MemberType NoteProperty -Name ServerState -Value $null
+        $server | Add-Member -MemberType NoteProperty -Name VirtualServerState -Value $null
         $server | Add-Member -MemberType NoteProperty -Name ComputerName -Value $ComputerName
+        $server | Add-Member -MemberType NoteProperty -Name IsLocalHost -Value $is_localhost
+        $server | Add-Member -MemberType NoteProperty -Name SmtpServiceState -Value $service_state
 
-        if ($Status) {
-            # ServerState friendly value lookup table.
-            $server_state_table = @{
-                1 = 'Starting'
-                2 = 'Started'
-                3 = 'Stopping'
-                4 = 'Stopped'
-                5 = 'Pausing'
-                6 = 'Paused'
-                7 = 'Continuing'
-            }
-
-            if ($local_host) {
-                $server_state = $server_state_table[$(([adsi]"IIS://localhost/$($server.ServerName)").ServerState)]
-            }
-            else {
-                $server_state = $server_state_table[
-                $(
-                    Invoke-Command -ComputerName $ComputerName -ScriptBlock {
-                        (([adsi]"IIS://localhost/$($using:server.ServerName)").ServerState)
-                    }
-                )
-                ]
-            }
-
-            $server.ServerState = $server_state
+        if ($server.LogFileDirectory) {
+            $server.LogFileDirectory = "$($server.LogFileDirectory)\$($server.VirtualServerName -replace '/','')"
         }
+
+        if (!($server | Get-Member -Name LogFileDirectory)) {
+            $server | Add-Member -MemberType NoteProperty -Name LogFileDirectory -Value "$($iis_metabase.configuration.MBProperty.IIsSmtpService.LogFileDirectory)\$($server.VirtualServerName -replace '/','')"
+        }
+
+        # VirtualServerState friendly value lookup table.
+        $server_state_table = @{
+            1 = 'Starting'
+            2 = 'Started'
+            3 = 'Stopping'
+            4 = 'Stopped'
+            5 = 'Pausing'
+            6 = 'Paused'
+            7 = 'Continuing'
+        }
+
+        $server.VirtualServerState = $server_state_table[(($server.ServerState)[0])]
     }
 
     $smtp_server
-    # $smtp_server | ForEach-Object {
-    #     $relay_ip_list = [System.Collections.Generic.List[string]]@()
-    #     $octet_strings = ($_.RelayIpList -split '(.{8})' | Where-Object { $_ -ne '' })
-
-    #     foreach ($octet in $octet_strings) {
-    #         $relay_ip_list.Add(($octet -split '(.{2})' | Where-Object { $_ -ne '' } | ForEach-Object { [convert]::ToInt32($_, 16) }) -join ".")
-    #     }
-    # }
 }
