@@ -7,6 +7,12 @@ Function Get-IISSmtpServer {
         $ComputerName
     )
 
+    [bool]$is_localhost = $false
+
+    if (!$ComputerName) {
+        $ComputerName = ($env:COMPUTERNAME).ToUpper()
+        [bool]$is_localhost = $true
+    }
     # Command expression to retrieve the SMTP server instances
     $command = '$(
     $smtp_service = [adsi]"IIS://localhost/SMTPSVC"
@@ -22,33 +28,67 @@ Function Get-IISSmtpServer {
     $smtp_server
     )'
 
-    if ($ComputerName) {
-        $ComputerName = $ComputerName.ToUpper()
-        try {
-            $system_root = Invoke-Command -ComputerName $ComputerName -ScriptBlock {
-                "$($env:SystemRoot)\system32"
-            } -ErrorAction Stop
-            $metabase_file = "\\$($ComputerName)\$($system_root -replace ':','$')\inetsrv\metabase.xml"
+    switch -regex ($ComputerName) {
+        # local machine
+        "^(localhost|\.|$($env:COMPUTERNAME))$" {
+            $ComputerName = ($env:COMPUTERNAME).ToUpper()
+            $is_localhost = $true
 
-            $smtp_server = @(Invoke-Command -ComputerName IISSMTP01 -ScriptBlock {
-                    Invoke-Expression $using:command
-                } -ErrorAction Stop)
+            try {
+                $smtpSvc = (Get-Service smtpsvc -ErrorAction Stop)
+                $metabase_file = "$env:SystemRoot\system32\inetsrv\metabase.xml"
+            }
+            catch {
+                SayError "[$($ComputerName)] The SMTP Server is not installed on this computer."
+                return $null
+            }
+
+
+            try {
+                $smtp_server = @(
+                    Invoke-Expression $command -ErrorAction Stop
+                )
+            }
+            catch {
+                SayError $_.Exception.Message
+                return $null
+            }
         }
-        catch {
-            SayError "[$($ComputerName)] $($_.Exception.Message)"
-            return $null
+
+        default {
+            # remote machine
+            $is_localhost = $false
+
+            try {
+                $smtpSvc = (Invoke-Command -ComputerName $ComputerName -ScriptBlock { Get-Service smtpsvc -ErrorAction Stop } -ErrorAction Stop)
+            }
+            catch {
+                SayError "[$($ComputerName)] The SMTP Server is not installed on this computer."
+                return $null
+            }
+
+            try {
+                $system_root = Invoke-Command -ComputerName $ComputerName -ScriptBlock {
+                    "$($env:SystemRoot)\system32"
+                } -ErrorAction Stop
+
+                $metabase_file = "\\$($ComputerName)\$($system_root -replace ':','$')\inetsrv\metabase.xml"
+            }
+            catch {
+                SayError "[$($ComputerName)] $($_.Exception.Message)"
+                return $null
+            }
+
+            try {
+                $smtp_server = @(Invoke-Command -ComputerName IISSMTP01 -ScriptBlock {
+                        Invoke-Expression $using:command -ErrorAction Stop
+                    } -ErrorAction Stop)
+            }
+            catch {
+                SayError "[$($ComputerName)] $($_.Exception.Message)"
+                return $null
+            }
         }
-    }
-
-    $is_localhost = $false
-
-    if (!$ComputerName -or $ComputerName -eq 'Localhost' -or $ComputerName -eq '.' -or $ComputerName -eq $env:COMPUTERNAME) {
-        $metabase_file = "$env:SystemRoot\system32\inetsrv\metabase.xml"
-        $ComputerName = ($env:COMPUTERNAME).ToUpper()
-        $is_localhost = $true
-        $smtp_server = @(
-            Invoke-Expression $command
-        )
     }
 
     if (!(Test-Path $metabase_file)) {
@@ -64,22 +104,8 @@ Function Get-IISSmtpServer {
         return $null
     }
 
-    switch ($is_localhost) {
-        $true { $service_state = (Get-Service SmtpSvc).Status }
-        $false {
-            $service_state = $(
-                Invoke-Command -ComputerName $ComputerName -ScriptBlock {
-                        (Get-Service SmtpSvc).Status
-                }
-            )
-        }
-        Default {}
-    }
-
-
     foreach ($server in $smtp_server) {
         $server_from_metabase = $iis_metabase.configuration.MBProperty.IIsSmtpServer | Where-Object { $server.Name -eq ($_.Location -replace '/lm/', '') }
-
         if ($server_from_metabase.RelayIpList) {
             $relay_ip_list = [System.Collections.Generic.List[string]]@()
             $octet_strings = ($server_from_metabase.RelayIpList.Substring(160) -split '(.{8})' | Where-Object { $_ -ne '' })
@@ -92,24 +118,24 @@ Function Get-IISSmtpServer {
             $server.RelayIpList = @()
         }
 
-        $server | Add-Member -MemberType NoteProperty -Name VirtualServerName -Value (($server.Name).ToUpper())
-        $server | Add-Member -MemberType NoteProperty -Name VirtualServerDisplayName -Value ($server.ServerComment)[0]
+        $server | Add-Member -MemberType NoteProperty -Name VirtualServerName -Value (($server.Name).ToUpper()) -Force
+        $server | Add-Member -MemberType NoteProperty -Name VirtualServerDisplayName -Value ($server.ServerComment)[0] -Force
         if (!$server.ServerComment) {
             $server.ServerComment = "[SMTP Virtual Server #$(($server.Location -split '/')[-1])]"
             $server.VirtualServerDisplayName = $server.ServerComment
         }
 
-        $server | Add-Member -MemberType NoteProperty -Name VirtualServerState -Value $null
-        $server | Add-Member -MemberType NoteProperty -Name ComputerName -Value $ComputerName
-        $server | Add-Member -MemberType NoteProperty -Name IsLocalHost -Value $is_localhost
-        $server | Add-Member -MemberType NoteProperty -Name SmtpServiceState -Value $service_state
+        $server | Add-Member -MemberType NoteProperty -Name VirtualServerState -Value $null -Force
+        $server | Add-Member -MemberType NoteProperty -Name ComputerName -Value $ComputerName -Force
+        $server | Add-Member -MemberType NoteProperty -Name IsLocalHost -Value $is_localhost -Force
+        $server | Add-Member -MemberType NoteProperty -Name SmtpServiceState -Value $smtpsvc.Status -Force
 
         if ($server.LogFileDirectory) {
             $server.LogFileDirectory = "$($server.LogFileDirectory)\$($server.VirtualServerName -replace '/','')"
         }
 
         if (!($server | Get-Member -Name LogFileDirectory)) {
-            $server | Add-Member -MemberType NoteProperty -Name LogFileDirectory -Value "$($iis_metabase.configuration.MBProperty.IIsSmtpService.LogFileDirectory)\$($server.VirtualServerName -replace '/','')"
+            $server | Add-Member -MemberType NoteProperty -Name LogFileDirectory -Value "$($iis_metabase.configuration.MBProperty.IIsSmtpService.LogFileDirectory)\$($server.VirtualServerName -replace '/','')" -Force
         }
 
         # VirtualServerState friendly value lookup table.
