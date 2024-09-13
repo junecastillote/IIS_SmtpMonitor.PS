@@ -1,4 +1,4 @@
-Function IsFeatureInstalled {
+Function IsRequiredFeatureInstalled {
     # This function returns a boolean value whether the Web-WMI and SMTP-Server features are installed on the local host.
 
     $ProgressPreference = 'SilentlyContinue'

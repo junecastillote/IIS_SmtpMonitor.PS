@@ -80,7 +80,7 @@ Function Get-IISSmtpServer {
             }
 
             try {
-                $smtp_server = @(Invoke-Command -ComputerName IISSMTP01 -ScriptBlock {
+                $smtp_server = @(Invoke-Command -ComputerName $ComputerName -ScriptBlock {
                         Invoke-Expression $using:command -ErrorAction Stop
                     } -ErrorAction Stop)
             }
@@ -121,7 +121,7 @@ Function Get-IISSmtpServer {
         $server | Add-Member -MemberType NoteProperty -Name VirtualServerName -Value (($server.Name).ToUpper()) -Force
         $server | Add-Member -MemberType NoteProperty -Name VirtualServerDisplayName -Value ($server.ServerComment)[0] -Force
         if (!$server.ServerComment) {
-            $server.ServerComment = "[SMTP Virtual Server #$(($server.Location -split '/')[-1])]"
+            $server.ServerComment = "[SMTP Virtual Server #$(($server.Name -split '/')[-1])]"
             $server.VirtualServerDisplayName = $server.ServerComment
         }
 
@@ -130,10 +130,12 @@ Function Get-IISSmtpServer {
         $server | Add-Member -MemberType NoteProperty -Name IsLocalHost -Value $is_localhost -Force
         $server | Add-Member -MemberType NoteProperty -Name SmtpServiceState -Value $smtpsvc.Status -Force
 
+        ## If LogFileDirectory property exists
         if ($server.LogFileDirectory) {
             $server.LogFileDirectory = "$($server.LogFileDirectory)\$($server.VirtualServerName -replace '/','')"
         }
 
+        ## If LogFileDirectory property does not exist.
         if (!($server | Get-Member -Name LogFileDirectory)) {
             $server | Add-Member -MemberType NoteProperty -Name LogFileDirectory -Value "$($iis_metabase.configuration.MBProperty.IIsSmtpService.LogFileDirectory)\$($server.VirtualServerName -replace '/','')" -Force
         }
