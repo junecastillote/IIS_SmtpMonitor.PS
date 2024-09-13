@@ -70,6 +70,16 @@ Function New-IISSmtpServerStatusReport {
         else {
             $report_title = $Title
         }
+
+        if (!$SelectedFolder) {
+            $SelectedFolder = @(
+                'Queue',
+                'Drop',
+                'BadMail',
+                'Pickup',
+                'LogFile'
+            )
+        }
     }
     process {
         foreach ($computer_name in $ComputerName) {
