@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        * {
+            font-family: aptos, calibri, 'Segoe UI', arial, sans-serif;
+            text-align: left;
+        }
+    </style>
+</head>
+
+<body style="font-family: aptos, calibri, 'Segoe UI', arial, sans-serif; text-align: left;">
+    <h2>vOrganizationName</h2>
+    <h3>IIS SMTP Service Report<br>vReportDate</h3>
+    <hr>
+    <!-- <h3>vComputerName</h3> -->
+    <!-- <table style="border-collapse: collapse; border: 1px solid #dddddd;"> -->
+    <table style="border-collapse: collapse;">
+        <tr>
+            <th style="padding: 5px; text-align: left; font-size: larger">vComputerName</th>
+        </tr>
+        <tr>
+            <th style="border: 1px solid #dddddd; padding: 5px; text-align: left;">SMTP Service (SmtpSvc)</th>
+            <td style="border: 1px solid #dddddd; padding: 5px; text-align: left;" colspan="5">
+                vSmtpServiceState</td>
+        </tr>
+        <tr>
+            <th style="border: 1px solid #dddddd; padding: 5px; text-align: left;">vVirtualServerDisplayName</th>
+            <td style="border: 1px solid #dddddd; padding: 5px; text-align: left;" colspan="5">vVirtualServerState</td>
+        </tr>
+        <tr>
+            <th style="border: 1px solid #dddddd; padding: 5px; text-align: left;" rowspan="3"></th>
+            <th style="border: 1px solid #dddddd; padding: 5px; text-align: left;">Queue</th>
+            <th style="border: 1px solid #dddddd; padding: 5px; text-align: left;">Pickup</th>
+            <th style="border: 1px solid #dddddd; padding: 5px; text-align: left;">BadMail</th>
+            <th style="border: 1px solid #dddddd; padding: 5px; text-align: left;">Drop</th>
+            <th style="border: 1px solid #dddddd; padding: 5px; text-align: left;">LogFiles</th>
+        </tr>
+
+        <tr>
+            <td style="border: 1px solid #dddddd; padding: 5px; text-align: left; font-style: italic;">
+                vPathQueue</td>
+            <td style="border: 1px solid #dddddd; padding: 5px; text-align: left; font-style: italic;">
+                vPathPickup</td>
+            <td style="border: 1px solid #dddddd; padding: 5px; text-align: left; font-style: italic;">
+                vPathBadMail</td>
+            <td style="border: 1px solid #dddddd; padding: 5px; text-align: left; font-style: italic;">
+                vPathDrop</td>
+            <td style="border: 1px solid #dddddd; padding: 5px; text-align: left; font-style: italic;">
+                vPathLogFiles</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid #dddddd; padding: 5px; text-align: right;">vCountQueue</td>
+            <td style="border: 1px solid #dddddd; padding: 5px; text-align: right;">vCountPickup</td>
+            <td style="border: 1px solid #dddddd; padding: 5px; text-align: right;">vCountBadMail</td>
+            <td style="border: 1px solid #dddddd; padding: 5px; text-align: right;">vCountDrop</td>
+            <td style="border: 1px solid #dddddd; padding: 5px; text-align: right;">vCountLogFiles</td>
+        </tr>
+        <!-- vSmtpServiceItems -->
+    </table>
+    <hr>
+</body>
+
+</html>

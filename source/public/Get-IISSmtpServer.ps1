@@ -60,6 +60,7 @@ Function Get-IISSmtpServer {
             $is_localhost = $false
 
             try {
+                # Get the SMTPSVC service object on the remote machine.
                 $smtpSvc = (Invoke-Command -ComputerName $ComputerName -ScriptBlock { Get-Service smtpsvc -ErrorAction Stop } -ErrorAction Stop)
             }
             catch {
@@ -68,10 +69,12 @@ Function Get-IISSmtpServer {
             }
 
             try {
+                # Get the system32 path on the remote machine.
                 $system_root = Invoke-Command -ComputerName $ComputerName -ScriptBlock {
                     "$($env:SystemRoot)\system32"
                 } -ErrorAction Stop
 
+                # Compose the metabase.xml full UNC file path.
                 $metabase_file = "\\$($ComputerName)\$($system_root -replace ':','$')\inetsrv\metabase.xml"
             }
             catch {
@@ -80,6 +83,7 @@ Function Get-IISSmtpServer {
             }
 
             try {
+                # Get the SMTP Virtual Server instances on the remote machine.
                 $smtp_server = @(Invoke-Command -ComputerName $ComputerName -ScriptBlock {
                         Invoke-Expression $using:command -ErrorAction Stop
                     } -ErrorAction Stop)
@@ -151,7 +155,16 @@ Function Get-IISSmtpServer {
             7 = 'Continuing'
         }
 
-        $server.VirtualServerState = $server_state_table[(($server.ServerState)[0])]
+        $server.VirtualServerState = $(
+            if ($server.ServerState) {
+                # Lookup the virtual smtp server status
+                $server_state_table[(($server.ServerState)[0])]
+            }
+            else {
+                # This scenario applies whent the SMTPSVC service is not running.
+                'Stopped'
+            }
+        )
     }
 
     $smtp_server

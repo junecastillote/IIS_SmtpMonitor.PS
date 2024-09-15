@@ -57,7 +57,7 @@ Function New-IISSmtpServerStatusReport {
 
         $now = [datetime]::Now
 
-        $module_info = Get-Module $($MyInvocation.MyCommand.ModuleName)\
+        $module_info = Get-Module $($MyInvocation.MyCommand.ModuleName)
         $html_template = "$($module_Info.ModuleBase)\source\private\email_template.html"
         $report_html_file = "$($OutputDirectory)\$($OrganizationName)_IISSmtpMonitor.PS_$(($now).ToString('yyyy-MM-dd_HH-mm-ss'))_report.html"
         $teams_card_file = "$($OutputDirectory)\$($OrganizationName)_IISSmtpMonitor.PS_$(($now).ToString('yyyy-MM-dd_HH-mm-ss'))_report.json"
