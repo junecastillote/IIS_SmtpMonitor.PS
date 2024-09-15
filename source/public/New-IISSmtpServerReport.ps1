@@ -58,7 +58,7 @@ Function New-IISSmtpServerStatusReport {
         $now = [datetime]::Now
 
         $module_info = Get-Module $($MyInvocation.MyCommand.ModuleName)
-        $html_template = "$($module_Info.ModuleBase)\source\private\email_template.html"
+        $html_template = "$($module_Info.ModuleBase)\source\private\html_template.html"
         $report_html_file = "$($OutputDirectory)\$($OrganizationName)_IISSmtpMonitor.PS_$(($now).ToString('yyyy-MM-dd_HH-mm-ss'))_report.html"
         $teams_card_file = "$($OutputDirectory)\$($OrganizationName)_IISSmtpMonitor.PS_$(($now).ToString('yyyy-MM-dd_HH-mm-ss'))_report.json"
 
@@ -83,7 +83,7 @@ Function New-IISSmtpServerStatusReport {
     }
     process {
         foreach ($computer_name in $ComputerName) {
-            $virtual_smtp_server_status = @(Get-IISSmtpServerStatus -ComputerName $computer_name)
+            $virtual_smtp_server_status = @(Get-IISSmtpServerStatus -ComputerName $computer_name -AggregateByHost)
             if ($virtual_smtp_server_status) {
                 $virtual_smtp_server_status_collection.AddRange($virtual_smtp_server_status)
             }
@@ -94,9 +94,6 @@ Function New-IISSmtpServerStatusReport {
             Continue
         }
 
-        foreach ($virtual_smtp_server_status in $virtual_smtp_server_status_collection) {
-            ## HTML report
-
-        }
+        $virtual_smtp_server_status_collection
     }
 }

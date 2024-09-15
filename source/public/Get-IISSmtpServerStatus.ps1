@@ -15,7 +15,11 @@ Function Get-IISSmtpServerStatus {
             'LogFile'
         )]
         [string[]]
-        $SelectedFolder
+        $SelectedFolder,
+
+        [Parameter()]
+        [switch]
+        $AggregateByHost
     )
 
     begin {
@@ -91,6 +95,8 @@ Function Get-IISSmtpServerStatus {
                 $directory
             }
         }
+
+        $virtual_smtp_server_status_collection = [System.Collections.Generic.List[object]]@()
     }
 
     process {
@@ -141,11 +147,28 @@ Function Get-IISSmtpServerStatus {
                     Write-Error $_.Exception.Message
                 }
             }
-            $results
+            $virtual_smtp_server_status_collection.AddRange(@($results))
         }
     }
 
     end {
+        if ($AggregateByHost) {
+
+            $smtp_instance_aggregated_by_computername = [System.Collections.Generic.List[object]]@()
+            foreach ($unique_computer_name in ($virtual_smtp_server_status_collection.ComputerName | Sort-Object | Select-Object -Unique)) {
+                $virtual_server = @($virtual_smtp_server_status_collection | Where-Object { $_.ComputerName -eq $unique_computer_name })
+                $smtp_instance_aggregated_by_computername.Add([PSCustomObject]@{
+                        ComputerName                = $unique_computer_name
+                        SmtpServiceState            = $($virtual_server[0].SmtpServiceState)
+                        VirtualSMTPServerCollection = @($virtual_server | Select-Object -ExcludeProperty ComputerName, SmtpServiceState)
+                    })
+            }
+
+            return $smtp_instance_aggregated_by_computername
+        }
+        else {
+            return $virtual_smtp_server_status_collection
+        }
 
     }
 
