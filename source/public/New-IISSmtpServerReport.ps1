@@ -94,6 +94,10 @@ Function New-IISSmtpServerStatusReport {
             Continue
         }
 
-        $virtual_smtp_server_status_collection
+        $report_item_html = [System.Collections.Generic.List[string]]@()
+
+        foreach ($item in $virtual_smtp_server_status_collection) {
+
+        }
     }
 }
