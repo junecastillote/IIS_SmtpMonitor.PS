@@ -6,16 +6,16 @@ Function New-IISSmtpServerStatusReport {
         [string[]]
         $ComputerName,
 
-        [Parameter()]
-        [ValidateSet(
-            'Queue',
-            'Drop',
-            'BadMail',
-            'Pickup',
-            'LogFile'
-        )]
-        [string[]]
-        $SelectedFolder,
+        # [Parameter()]
+        # [ValidateSet(
+        #     'Queue',
+        #     'Drop',
+        #     'BadMail',
+        #     'Pickup',
+        #     'LogFile'
+        # )]
+        # [string[]]
+        # $SelectedFolder,
 
         [Parameter()]
         [string]
@@ -27,10 +27,6 @@ Function New-IISSmtpServerStatusReport {
 
         [Parameter()]
         [string]$Title,
-
-        [Parameter()]
-        [string]
-        $HtmlReportFileName,
 
         [Parameter()]
         [ValidateRange(0, ([int]::MaxValue))]
@@ -73,6 +69,9 @@ Function New-IISSmtpServerStatusReport {
         )
         $html_smtp_server_section = Get-Content "$($module_Info.ModuleBase)\source\private\smtp_server_section.html" -Raw
         $html_smtp_instance_section = Get-Content "$($module_Info.ModuleBase)\source\private\smtp_instance_section.html" -Raw
+        $html_smtp_issue_section = Get-Content "$($module_Info.ModuleBase)\source\private\smtp_issue_section.html" -Raw
+
+        $issue_collection = [System.Collections.Generic.List[string]]@()
 
         # $report_html_file = "$($OutputDirectory)\$($OrganizationName)_IISSmtpMonitor.PS_$(($now).ToString('yyyy-MM-dd_HH-mm-ss'))_report.html"
         # $teams_card_file = "$($OutputDirectory)\$($OrganizationName)_IISSmtpMonitor.PS_$(($now).ToString('yyyy-MM-dd_HH-mm-ss'))_report.json"
@@ -86,18 +85,19 @@ Function New-IISSmtpServerStatusReport {
         #     $report_title = $Title
         # }
 
-        if (!$SelectedFolder) {
-            $SelectedFolder = @(
-                'Queue',
-                'Drop',
-                'BadMail',
-                'Pickup',
-                'LogFile'
-            )
-        }
+        # if (!$SelectedFolder) {
+        #     $SelectedFolder = @(
+        #         'Queue',
+        #         'Drop',
+        #         'BadMail',
+        #         'Pickup',
+        #         'LogFile'
+        #     )
+        # }
     }
     process {
         foreach ($computer_name in $ComputerName) {
+            # $virtual_smtp_server_status = @(Get-IISSmtpServerStatus -ComputerName $computer_name -AggregateByHost -SelectedFolder $SelectedFolder)
             $virtual_smtp_server_status = @(Get-IISSmtpServerStatus -ComputerName $computer_name -AggregateByHost)
             if ($virtual_smtp_server_status) {
                 $virtual_smtp_server_status_collection.AddRange($virtual_smtp_server_status)
@@ -109,14 +109,15 @@ Function New-IISSmtpServerStatusReport {
             Continue
         }
 
-        $report_item_html = [System.Collections.Generic.List[string]]@()
+        $report_html = [System.Collections.Generic.List[string]]@()
+
         foreach ($server_item in $virtual_smtp_server_status_collection) {
-            $report_item_html.Add('<table style="border-collapse: collapse;">')
+            $report_html.Add('<table style="border-collapse: collapse;">')
 
             #Region SMTP Server Section
             $current_server_section = $html_smtp_server_section
             $current_server_section = $current_server_section.Replace(
-                'vComputerName', $server_item.ComputerName
+                'vComputerName', "SERVER: $($server_item.ComputerName)"
             )
 
             if ($server_item.SmtpServiceState -ne 'Running') {
@@ -124,6 +125,7 @@ Function New-IISSmtpServerStatusReport {
                     ';">vSmtpServiceState',
                     '; color: red; font-weight: bold;">' + $server_item.SmtpServiceState
                 )
+                $issue_collection.Add("$($server_item.ComputerName):The SMTP service is <b>[$($server_item.SmtpServiceState)]</b>.")
             }
             else {
                 $current_server_section = $current_server_section.Replace(
@@ -131,7 +133,7 @@ Function New-IISSmtpServerStatusReport {
                     $server_item.SmtpServiceState
                 )
             }
-            $report_item_html.Add($current_server_section)
+            $report_html.Add($current_server_section)
             #EndRegion SMTP Server Section
 
             #Region SMTP Instance Section
@@ -144,6 +146,7 @@ Function New-IISSmtpServerStatusReport {
                         ';">vVirtualServerState',
                         '; color: red; font-weight: bold;">' + $instance_item.VirtualServerState
                     )
+                    $issue_collection.Add("$($server_item.ComputerName):$($instance_item.VirtualServerDisplayName) - The SMTP virtual server instance is <b>[$($instance_item.VirtualServerState)]</b>.")
                 }
                 else {
                     $current_instance_section = $current_instance_section.Replace(
@@ -175,77 +178,107 @@ Function New-IISSmtpServerStatusReport {
                 if ($QueueThreshold -and $queue.TotalCount -gt $QueueThreshold ) {
                     $current_instance_section = $current_instance_section.Replace(
                         ';">vCountQueue',
-                        '; color: red; font-weight: bold;">' + $queue.TotalCount
+                        '; color: red; font-weight: bold;">' + ($queue.TotalCount).ToString("N0")
                     )
+                    $issue_collection.Add("$($server_item.ComputerName):$($instance_item.VirtualServerDisplayName) - <b>Queue</b> count is <b>$($queue.TotalCount)</b>. Threshold is $($QueueThreshold).")
                 }
                 else {
                     $current_instance_section = $current_instance_section.Replace(
                         'vCountQueue',
-                        $queue.TotalCount
+                        ($queue.TotalCount).ToString("N0")
                     )
                 }
 
                 if ($PickupThreshold -and $pickup.TotalCount -gt $PickupThreshold ) {
                     $current_instance_section = $current_instance_section.Replace(
                         ';">vCountPickup',
-                        '; color: red; font-weight: bold;">' + $pickup.TotalCount
+                        '; color: red; font-weight: bold;">' + ($pickup.TotalCount).ToString("N0")
                     )
+                    $issue_collection.Add("$($server_item.ComputerName):$($instance_item.VirtualServerDisplayName) - <b>Pickup</b> count is <b>$($pickup.TotalCount)</b>. Threshold is $($PickupThreshold).")
                 }
                 else {
                     $current_instance_section = $current_instance_section.Replace(
                         'vCountPickup',
-                        $pickup.TotalCount
+                        ($pickup.TotalCount).ToString("N0")
                     )
                 }
 
                 if ($BadMailThreshold -and $badmail.TotalCount -gt $BadMailThreshold ) {
                     $current_instance_section = $current_instance_section.Replace(
                         ';">vCountBadMail',
-                        '; color: red; font-weight: bold;">' + $badmail.TotalCount
+                        '; color: red; font-weight: bold;">' + ($badmail.TotalCount).ToString("N0")
                     )
+                    $issue_collection.Add("$($server_item.ComputerName):$($instance_item.VirtualServerDisplayName) - <b>BadMail</b> count is <b>$($badmail.TotalCount)</b>. Threshold is $($BadMailThreshold).")
                 }
                 else {
                     $current_instance_section = $current_instance_section.Replace(
                         'vCountBadMail',
-                        $badmail.TotalCount
+                        ($badmail.TotalCount).ToString("N0")
                     )
                 }
 
                 if ($DropThreshold -and $drop.TotalCount -gt $DropThreshold ) {
                     $current_instance_section = $current_instance_section.Replace(
                         ';">vCountDrop',
-                        '; color: red; font-weight: bold;">' + $drop.TotalCount
+                        '; color: red; font-weight: bold;">' + ($drop.TotalCount).ToString("N0")
                     )
+                    $issue_collection.Add("$($server_item.ComputerName):$($instance_item.VirtualServerDisplayName) - <b>Drop</b> count is <b>$($drop.TotalCount)</b>. Threshold is $($DropThreshold).")
                 }
                 else {
                     $current_instance_section = $current_instance_section.Replace(
                         'vCountDrop',
-                        $drop.TotalCount
+                        ($drop.TotalCount).ToString("N0")
                     )
                 }
 
                 if ($LogFileThreshold -and $logfile.TotalCount -gt $LogFileThreshold ) {
                     $current_instance_section = $current_instance_section.Replace(
                         ';">vCountLogFile',
-                        '; color: red; font-weight: bold;">' + $logfile.TotalCount
+                        '; color: red; font-weight: bold;">' + ($logfile.TotalCount).ToString("N0")
                     )
+                    $issue_collection.Add("$($server_item.ComputerName):$($instance_item.VirtualServerDisplayName) - <b>LogFile</b> count is <b>$($logfile.TotalCount)</b>. Threshold is $($LogFileThreshold).")
                 }
                 else {
                     $current_instance_section = $current_instance_section.Replace(
                         'vCountLogFile',
-                        $logfile.TotalCount
+                        ($logfile.TotalCount).ToString("N0")
                     )
                 }
 
-                $report_item_html.Add($current_instance_section)
+                $report_html.Add($current_instance_section)
             }
             #EndRegion SMTP Instance Section
-            $report_item_html.Add('</table><hr>')
+            $report_html.Add('</table><hr>')
         }
         $html_template = $html_template.Replace(
             '<!-- DATA -->',
-            ($report_item_html -join "`n")
+            ($report_html -join "`n")
         )
+
+        if ($issue_collection.Count -gt 1) {
+            $issue_section = [System.Collections.Generic.List[string]]@()
+            $issue_section.Add('<table style="border-collapse: collapse;">')
+            # $issue_section.Add('<tr><th style="border: 1px solid #dddddd; padding: 5px; text-align: left; font-size: larger;" colspan="2">ISSUE LIST</th></tr>')
+            $issue_section.Add('<tr><th style="border: none; padding: 5px; text-align: left; font-size: larger;" colspan="2">ISSUE LIST</th></tr>')
+
+            foreach ($issue in $issue_collection) {
+                # $issue | Out-Default
+                $current_issue = $html_smtp_issue_section
+                $current_issue = $current_issue.Replace(
+                    'vTarget', "$($issue.Split(':')[0])"
+                ).Replace(
+                    'vIssue', "$($issue.Split(':')[-1])"
+                )
+
+                $issue_section.Add($current_issue)
+            }
+            $issue_section.Add('</table><hr>')
+
+            $html_template = $html_template.Replace(
+                '<!-- ISSUE -->',
+            ($issue_section -join "`n")
+            )
+        }
 
         $html_template
     }

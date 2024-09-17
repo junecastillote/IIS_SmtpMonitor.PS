@@ -39,7 +39,7 @@ Function Get-IISSmtpServer {
                 $metabase_file = "$env:SystemRoot\system32\inetsrv\metabase.xml"
             }
             catch {
-                SayError "[$($ComputerName)] The SMTP Server is not installed on this computer."
+                SayError "[$($ComputerName)] The SMTP Server is not installed on this computer. $($_)"
                 return $null
             }
 
