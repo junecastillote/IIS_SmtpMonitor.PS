@@ -1,34 +1,56 @@
 <tr>
     <th style="border: 1px solid #dddddd; padding: 5px; text-align: left;">vVirtualServerDisplayName</th>
-    <td colspan="5" style="border: 1px solid #dddddd; padding: 5px; text-align: left;">vVirtualServerState</td>
+    <td colspan="4" style="border: 1px solid #dddddd; padding: 5px; text-align: left;">vVirtualServerState</td>
 </tr>
 
 <tr>
-    <th style="border: 1px solid #dddddd; padding: 5px; text-align: left;" rowspan="3"></th>
+    <th style="border: 1px solid #dddddd;" rowspan="6"></th>
+    <th style="border: 1px solid #dddddd; padding: 5px; text-align: left;">Folder</th>
+    <th style="border: 1px solid #dddddd; padding: 5px; text-align: left;">Path</th>
+    <th style="border: 1px solid #dddddd; padding: 5px; text-align: left;">Count</th>
+    <th style="border: 1px solid #dddddd; padding: 5px; text-align: left;">Size (MB)</th>
+</tr>
+
+<!-- QUEUE -->
+<tr>
     <th style="border: 1px solid #dddddd; padding: 5px; text-align: left;">Queue</th>
-    <th style="border: 1px solid #dddddd; padding: 5px; text-align: left;">Pickup</th>
-    <th style="border: 1px solid #dddddd; padding: 5px; text-align: left;">BadMail</th>
-    <th style="border: 1px solid #dddddd; padding: 5px; text-align: left;">Drop</th>
-    <th style="border: 1px solid #dddddd; padding: 5px; text-align: left;">LogFiles</th>
-</tr>
-
-<tr>
     <td style="border: 1px solid #dddddd; padding: 5px; text-align: left; font-style: italic;">
         vPathQueue</td>
+    <td style="border: 1px solid #dddddd; padding: 5px; text-align: right;">vCountQueue</td>
+    <td style="border: 1px solid #dddddd; padding: 5px; text-align: right;">vSizeQueue</td>
+</tr>
+<!-- PICKUP -->
+<tr>
+    <th style="border: 1px solid #dddddd; padding: 5px; text-align: left;">Pickup</th>
     <td style="border: 1px solid #dddddd; padding: 5px; text-align: left; font-style: italic;">
         vPathPickup</td>
+    <td style="border: 1px solid #dddddd; padding: 5px; text-align: right;">vCountPickup</td>
+    <td style="border: 1px solid #dddddd; padding: 5px; text-align: right;">vSizePickup</td>
+</tr>
+<!-- BADMAIL -->
+<tr>
+    <!-- <th style="border: 1px solid #dddddd;"></th> -->
+    <th style="border: 1px solid #dddddd; padding: 5px; text-align: left;">BadMail</th>
     <td style="border: 1px solid #dddddd; padding: 5px; text-align: left; font-style: italic;">
         vPathBadMail</td>
+    <td style="border: 1px solid #dddddd; padding: 5px; text-align: right;">vCountBadMail</td>
+    <td style="border: 1px solid #dddddd; padding: 5px; text-align: right;">vSizeBadMail</td>
+</tr>
+<!-- DROP -->
+<tr>
+    <!-- <th style="border: 1px solid #dddddd;"></th> -->
+    <th style="border: 1px solid #dddddd; padding: 5px; text-align: left;">Drop</th>
     <td style="border: 1px solid #dddddd; padding: 5px; text-align: left; font-style: italic;">
         vPathDrop</td>
+    <td style="border: 1px solid #dddddd; padding: 5px; text-align: right;">vCountDrop</td>
+    <td style="border: 1px solid #dddddd; padding: 5px; text-align: right;">vSizeDrop</td>
+</tr>
+<!-- LOGFILE -->
+<tr>
+    <!-- <th style="border: 1px solid #dddddd;"></th> -->
+    <th style="border: 1px solid #dddddd; padding: 5px; text-align: left;">LogFile</th>
     <td style="border: 1px solid #dddddd; padding: 5px; text-align: left; font-style: italic;">
         vPathLogFile</td>
-</tr>
-
-<tr>
-    <td style="border: 1px solid #dddddd; padding: 5px; text-align: right;">vCountQueue</td>
-    <td style="border: 1px solid #dddddd; padding: 5px; text-align: right;">vCountPickup</td>
-    <td style="border: 1px solid #dddddd; padding: 5px; text-align: right;">vCountBadMail</td>
-    <td style="border: 1px solid #dddddd; padding: 5px; text-align: right;">vCountDrop</td>
     <td style="border: 1px solid #dddddd; padding: 5px; text-align: right;">vCountLogFile</td>
+    <td style="border: 1px solid #dddddd; padding: 5px; text-align: right;">vSizeLogFile</td>
 </tr>

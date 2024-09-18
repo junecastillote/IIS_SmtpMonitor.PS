@@ -73,7 +73,7 @@ Function Get-IISSmtpServerStatus {
                 Default {}
             }
 
-            $result.Value.Items += [PSCustomObject]@{
+            $result.Value.Folders += [PSCustomObject]@{
                 Type        = $type
                 LocalPath   = $directory
                 NetworkPath = (GetNetworkPath $directory -computerName $computername)
@@ -114,12 +114,17 @@ Function Get-IISSmtpServerStatus {
                 try {
                     $result = [ordered]@{
                         PSTypeName               = 'IIS_Smtp_Server_Status'
-                        ComputerName             = $server.ComputerName
-                        VirtualServerName        = $server.VirtualServerName
-                        VirtualServerDisplayName = $server.VirtualServerDisplayName
+                        ComputerName             = $server.ComputerName.ToUpper()
+                        VirtualServerName        = $server.VirtualServerName.ToUpper()
+                        VirtualServerDisplayName = $server.VirtualServerDisplayName.ToUpper()
                         VirtualServerState       = $server.VirtualServerState
                         SmtpServiceState         = $server.SmtpServiceState
-                        Items                    = @()
+                        Folders                    = @()
+                        DiskSpace                = @(
+                            Get-CimInstance Win32_LogicalDisk |
+                            Where-Object { $_.DriveType -eq '3' } |
+                            Select-Object Name, VolumeName, Size, FreeSpace, @{n = 'UsedSpace'; e = { ($_.Size - $_.FreeSpace) } }
+                        )
                     }
 
                     if ($SelectedFolder) {
