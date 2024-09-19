@@ -79,7 +79,9 @@ Function Send-IISSmtpReportToEmail {
         }
 
         try {
-            Send-MailMessage @mail_prop -Subject $InputObject.Title -Body $InputObject.HtmlContent -BodyAsHtml -ErrorAction Stop
+            SayInfo "Sending email report."
+            Send-MailMessage @mail_prop -Subject $InputObject.Title -Body $InputObject.HtmlContent -BodyAsHtml -ErrorAction Stop -WarningAction SilentlyContinue
+            SayInfo "Done."
         }
         catch {
             SayError "Failed to send email report. `n$star_divider`n$_$star_divider"
