@@ -1,2 +1,3 @@
 # IIS SMTP Server Queue Monitor
- Monitor IIS SMTP server queue count
+
+ Monitor IIS SMTP server
