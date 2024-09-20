@@ -316,6 +316,7 @@ Function New-IISSmtpServerStatusReport {
         )
 
         if ($issue_collection.Count -gt 1) {
+            SayWarning "There are $($issue_collection.Count) issue(s) detected. Make sure to review the report and remediate."
             $issue_section = [System.Collections.Generic.List[string]]@()
             $issue_section.Add('<table style="border-collapse: collapse;">')
             $issue_section.Add('<tr><th style="border: none; padding: 5px; text-align: left; font-size: larger;" colspan="2">ISSUE LIST</th></tr>')
@@ -329,6 +330,7 @@ Function New-IISSmtpServerStatusReport {
                 )
 
                 $issue_section.Add($current_issue)
+                SayWarning "   * $($issue)"
             }
             $issue_section.Add('</table><hr>')
 
@@ -336,6 +338,8 @@ Function New-IISSmtpServerStatusReport {
                 '<!-- ISSUE -->',
                 ($issue_section -join "`n")
             )
+
+
         }
 
         $html_report | Out-File $report_html_file -Force
@@ -356,7 +360,10 @@ Function New-IISSmtpServerStatusReport {
         [Management.Automation.PSMemberInfo[]]$default_properties = [System.Management.Automation.PSPropertySet]::new('DefaultDisplayPropertySet', $visible_properties)
         $result | Add-Member -MemberType MemberSet -Name PSStandardMembers -Value $default_properties
 
+        SayInfo "A copy of the report is @ $($report.HtmlFileName)"
+
         if ($OpenHtmlReport) {
+            SayInfo "Opening the report in the default browser."
             Invoke-Item $report.HtmlFileName
         }
 
