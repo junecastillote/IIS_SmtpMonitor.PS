@@ -60,7 +60,7 @@ Function New-IISSmtpServerStatusReport {
 
     begin {
 
-        $now = [datetime]::Now
+        $now = ([datetime]::Now).ToLocalTime()
 
         $module_info = Get-Module $($MyInvocation.MyCommand.ModuleName)
         $html_report = Get-Content "$($module_Info.ModuleBase)\source\private\html_template.html" -Raw
@@ -95,7 +95,7 @@ Function New-IISSmtpServerStatusReport {
         $issue_collection = [System.Collections.Generic.List[string]]@()
 
         $report_html_file = "$($OutputDirectory)\$($OrganizationName)_IISSmtpMonitor.PS_$(($now).ToString('yyyy-MM-dd_HH-mm-ss'))_report.html"
-        # $teams_card_file = "$($OutputDirectory)\$($OrganizationName)_IISSmtpMonitor.PS_$(($now).ToString('yyyy-MM-dd_HH-mm-ss'))_report.json"
+        $teams_card_file = "$($OutputDirectory)\$($OrganizationName)_IISSmtpMonitor.PS_$(($now).ToString('yyyy-MM-dd_HH-mm-ss'))_report.json"
 
 
 
@@ -108,6 +108,81 @@ Function New-IISSmtpServerStatusReport {
         #         'LogFile'
         #     )
         # }
+
+        Function NewTeamsCardJson {
+            [CmdletBinding()]
+            param (
+                [Parameter(Mandatory)]
+                $InputObject
+            )
+
+            $moduleInfo = Get-Module $($MyInvocation.MyCommand.ModuleName)
+
+            Function New-FactItem {
+                [CmdletBinding()]
+                param (
+                    [Parameter(Mandatory)]
+                    $InputObject
+                )
+
+                # $factHeader = [pscustomobject][ordered]@{
+                #     type  = "Container"
+                #     style = "emphasis"
+                #     bleed = $true
+                #     items = @(
+                #         $([pscustomobject][ordered]@{
+                #                 type      = 'TextBlock'
+                #                 wrap      = $true
+                #                 separator = $true
+                #                 weight    = 'Bolder'
+                #                 # text      = "$($InputObject.id) | $($InputObject.Service) | $($InputObject.Title)"
+                #                 text      = "Issues"
+                #             } )
+                #     )
+                # }
+
+                $factSet = [pscustomobject][ordered]@{
+                    type      = 'FactSet'
+                    separator = $true
+                    facts     = @(
+                        $([pscustomobject][ordered]@{Title = $($InputObject.Split(':')[0]); Value = $($InputObject.Split(':')[-1]) } )
+                    )
+                }
+                # return @($factHeader, $factSet)
+                return @($factSet)
+            }
+
+            $teamsAdaptiveCard = ((Get-Content (($moduleInfo.ModuleBase.ToString()) + '\source\private\TeamsCard.json') -Raw) | ConvertFrom-Json)
+
+            $teamsAdaptiveCard.attachments[0].content.body += ([pscustomobject][ordered]@{
+                    type  = "Container"
+                    style = "emphasis"
+                    bleed = $true
+                    items = @(
+                        $([pscustomobject][ordered]@{
+                                type                = 'TextBlock'
+                                wrap                = $true
+                                weight              = 'Bolder'
+                                text                = "$($report_title)"
+                                size                = 'Large'
+                                horizontalAlignment = 'Center'
+                            } ),
+                        $([pscustomobject][ordered]@{
+                                type                = 'TextBlock'
+                                wrap                = $true
+                                text                = $($now.ToString('F'))
+                                horizontalAlignment = 'Center'
+                            } )
+                    )
+                })
+
+            foreach ($item in $InputObject) {
+                $teamsAdaptiveCard.attachments[0].content.body += (New-FactItem -InputObject $item)
+            }
+
+            # $teamsAdaptiveCard.attachments[0].content = $teamsAdaptiveCard.attachments[0].content | ConvertTo-Json -Depth 10
+            return ($teamsAdaptiveCard | ConvertTo-Json -Depth 10)
+        }
     }
     process {
         foreach ($computer_name in $ComputerName) {
@@ -330,16 +405,18 @@ Function New-IISSmtpServerStatusReport {
                 )
 
                 $issue_section.Add($current_issue)
+
                 SayWarning "   * $($issue)"
+
             }
             $issue_section.Add('</table><hr>')
+            $teams_card_content = (NewTeamsCardJson -InputObject $issue_collection)
 
             $html_report = $html_report.Replace(
                 '<!-- ISSUE -->',
                 ($issue_section -join "`n")
             )
-
-
+            $teams_card_content | Out-File $teams_card_file -Force
         }
 
         $html_report | Out-File $report_html_file -Force
@@ -352,15 +429,13 @@ Function New-IISSmtpServerStatusReport {
             Issues              = ($issue_collection -join "`n")
             HtmlFileName        = (Resolve-Path $report_html_file).Path
             HtmlContent         = $html_report
-            TeamsCardFileName   = ''
-            TeamsCardContent    = ''
+            TeamsCardFileName   = $(if ($teams_card_content) { (Resolve-Path $teams_card_file).Path })
+            TeamsCardContent    = $teams_card_content
         }
 
         $visible_properties = [string[]]@('Title', 'ReportGeneratedDate', 'HtmlFileName', 'TeamsCardFileName')
         [Management.Automation.PSMemberInfo[]]$default_properties = [System.Management.Automation.PSPropertySet]::new('DefaultDisplayPropertySet', $visible_properties)
         $result | Add-Member -MemberType MemberSet -Name PSStandardMembers -Value $default_properties
-
-        SayInfo "A copy of the report is @ $($report.HtmlFileName)"
 
         if ($OpenHtmlReport) {
             SayInfo "Opening the report in the default browser."

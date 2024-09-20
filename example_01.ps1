@@ -6,6 +6,7 @@ Import-Module .\IIS_SmtpMonitor.PS.psd1 -Force
 $report_params = @{
     # IIS Smtp server hostname(s) to check.
     ComputerName     = @('SMTP1', 'SMTP2')
+    # ComputerName     = @('SMTP1')
 
     # Organization name to appear in the report. Mandatory.
     OrganizationName = 'PoshLab'
@@ -20,10 +21,10 @@ $report_params = @{
 
     # Specify each threshold. 0 means no threshold.
     QueueThreshold   = 50
-    PickupThreshold  = 0
+    PickupThreshold  = 50
     BadMailThreshold = 50
-    DropThreshold    = 0
-    LogFileThreshold = 0
+    DropThreshold    = 50
+    LogFileThreshold = 50
 
     # Specify $true or $false, whether to open the HTML report at the end.
     # Do not enable if running the script unattended (automation).
@@ -70,4 +71,13 @@ $mail_params = @{
 
 # Send the report.
 Send-IISSmtpReportToEmail @mail_params
+# =================================================================
+
+# =================================================================
+# Send to Teams.
+# =================================================================
+$teams_webhook_url = @('')
+if ($teams_webhook_url) {
+    $report | Send-IISSmtpReportToTeams -TeamsWebhookUrl $teams_webhook_url
+}
 # =================================================================

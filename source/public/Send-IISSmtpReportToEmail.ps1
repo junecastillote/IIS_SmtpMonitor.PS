@@ -68,23 +68,25 @@ Function Send-IISSmtpReportToEmail {
 
     }
     process {
-        if ($SendOnIssueOnly -and !$InputObject.Issues) {
-            SayInfo "No issues to report. Email not sent."
-            Continue
-        }
+        foreach ($item in $InputObject) {
+            if ($SendOnIssueOnly -and !$item.Issues) {
+                SayInfo "No issues to report. Email not sent."
+                continue
+            }
 
-        if ($InputObject.Issues) {
-            $mail_prop.Add('Priority', 'High')
-            $InputObject.Title = "ALERT! $($InputObject.Title)"
-        }
+            if ($item.Issues) {
+                $mail_prop.Add('Priority', 'High')
+                $item.Title = "ALERT! $($item.Title)"
+            }
 
-        try {
-            SayInfo "Sending email report."
-            Send-MailMessage @mail_prop -Subject $InputObject.Title -Body $InputObject.HtmlContent -BodyAsHtml -ErrorAction Stop -WarningAction SilentlyContinue
-            SayInfo "Done."
-        }
-        catch {
-            SayError "Failed to send email report. `n$star_divider`n$_$star_divider"
+            try {
+                SayInfo "Sending email report."
+                Send-MailMessage @mail_prop -Subject $item.Title -Body $item.HtmlContent -BodyAsHtml -ErrorAction Stop -WarningAction SilentlyContinue
+                # SayInfo "Done."
+            }
+            catch {
+                SayError "Failed to send email report. `n$star_divider`n$_$star_divider"
+            }
         }
     }
     end {
