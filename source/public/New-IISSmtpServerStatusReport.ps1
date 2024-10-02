@@ -19,7 +19,7 @@ Function New-IISSmtpServerStatusReport {
 
         [Parameter()]
         [string]
-        $OutputDirectory = $($env:temp),
+        $OutputDirectory,
 
         [Parameter(Mandatory)]
         [string]
@@ -59,6 +59,10 @@ Function New-IISSmtpServerStatusReport {
     )
 
     begin {
+
+        if ([string]::IsNullOrEmpty($OutputDirectory)) {
+            $OutputDirectory = (Resolve-Path ($env:TEMP)).Path
+        }
 
         $now = ([datetime]::Now).ToLocalTime()
 
